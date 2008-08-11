@@ -42,66 +42,23 @@ class BlogError(Exception):
         
     def __repr__(self):
         return self.msg   
-        
-    def __str__(self):
-        return self.msg   
 
-class Blogger(object):
-    """
-    
-    A Python interface to the blogger API.
-    Since Blogger API for BlogSpot has been discontinued, this class will be built upon using Google Blogger API.
-    
-    """
-
-    def __init__(self, serverapi, username, password):
+    __str__ = __repr__   
         
-        raise BlogError("This class has not yet been implemented")
-        
-    #     self.username   = username
-    #     self.password   = password
-    #     self.appid      = '0123456789ABCDEF'        # Now blogger.com does not require appid. This default value will do
-    #     
-    #     self.server     = xmlrpclib.Server(serverapi)
-    # 
-    # def ListMethods(self):
-    #     """Helper function to list methods"""
-    #     return self.server.system.listMethods()
-    # 
-    # def GetUserBlogs(self):
-    #     """Returns the blogs associated with the user"""
-    #     return self.server.blogger.getUsersBlogs(self.appid, self.username, self.password)
-    # 
-    # def GetUserInfo(self):
-    #     """Returns info for the user"""
-    #     return self.server.blogger.getUserInfo(self.appid, self.username, self.password)
-    # 
-    # def GetRecentPosts(self, blogid=1, numposts=10):
-    #     """Returns the recent numposts for blogid"""
-    #     return self.server.blogger.getRecentPosts(self.appid, blogid, self.username, self.password, numposts)
-    #     
-    # def GetPost(self, postid):
-    #     """Returns details about a particular post"""
-    #     return self.server.metaWeblog.getPost(postid, self.username, self.password)
-    # 
-class MetaWeblog(object):
+class Blog(object):
     """
-    Python interface to Metaweblog API
+    Base class for all blog object. Python interface to various blogging API
 
-    This class is just a simple encapsulator over Metaweblog API RPC-XML. It does nothing but call the corresponding XMLRPC functions and check for error.
+    This and extending class are just simple encapsulators over XML-RPC. It does nothing but call the corresponding XMLRPC functions and check for error.
     
     Rightnow, it returns Python based dictionary as it is returned by the server but later on we maybe encapsulate the data using simplified custon object.
     """
-
     def __init__(self, serverapi, username, password):
-        
         """
-        Creates and returns a Metaweblog object.
-        
         Args:
             serverapi = URL to the XML-RPC API.
-            username  = Username for the MetaWeblog enabled Blog account.
-            password  = Password for the MetaWevlog enabled Blog account.
+            username  = Username for the Blog account.
+            password  = Password for the Blog account.
         """
         self.username           = username
         self.password           = password
@@ -110,14 +67,14 @@ class MetaWeblog(object):
         # Check if URL exists
         if not checkURL(serverapi):
             raise BlogError('XML-RPC API URL not found.')
-        
+
         # Connect to the api. Call listMethods to keep a dictionary of available methods
         self.server             = xmlrpclib.ServerProxy(serverapi)
-        self.ListMethods()
-        
-    def ListMethods(self):
+        self.list_methods()
+
+    def list_methods(self):
         """Call systen.listMethods on server.
-        
+
         Returns:
             List of XML-RPC methods implemented by the server. 
         """
@@ -126,10 +83,47 @@ class MetaWeblog(object):
                 self.methods = self.server.system.listMethods()
             except xmlrpclib.Fault, fault:
                 raise BlogError(fault.faultString)
-            
-        return self.methods #.sort()
+
+        return self.methods.sort()
+
+    def execute(self, methodname, *args):
+
+        """
+        Callback function to call the XML-RPC method
+
+        Args:
+           methodname = XML-RPC methodname.
+           args = Arguments to the call. 
+        """
+        if not methodname in self.methods:
+            raise BlogError(BlogError.METHOD_NOT_SUPPORTED)
+
+        try:
+            r = getattr(self.server, methodname)(args)
+        except xmlrpclib.Fault, fault:
+            raise BlogError(fault.faultString)
+
+        return r
         
-    def GetRecentPosts(self, numposts=10, blogid=1):
+
+class Blogger(object):
+    """
+    A Python interface to the blogger API.
+    """
+
+    def __init__(self, serverapi, username, password):
+        raise BlogError("This class has not yet been implemented")
+
+class MetaWeblog(Blog):
+    """
+    Python interface to Metaweblog API
+    This class extends Blog to implement metaWeblog API
+    """
+
+    def __init__(self, serverapi, username, password):
+        Blog.__init__(self, serverapi, username, password)
+        
+    def get_recent_posts(self, numposts=10, blogid=1):
         """
         Returns 'numposts' number of recent post for the blog identified by 'blogid'
         
@@ -137,29 +131,30 @@ class MetaWeblog(object):
             numposts = Number of posts to be returned [optional]
             blogid   = id of thr blog
             """
-        return self.Execute('metaWeblog.getRecentPosts', blogid, self.username, self.password, numposts)
+        return self.execute('metaWeblog.getRecentPosts', blogid, self.username, self.password, numposts)
     
-    def GetPost(self, postid):
+    def get_post(self, postid):
         """
         Returns dictionary based post content corresponding to postid.
         
         Args:
             postid = Unique identifier for the post
         """
-        return self.Execute('metaWeblog.getPost', postid, self.username, self.password)
+        return self.execute('metaWeblog.getPost', postid, self.username, self.password)
         
-    def DeletePost(self, postid, publish=True):
+    def new_post(self, content, publish=True, blogid=1):
         """
-        Deletes a post identified by postid
+        New post
 
         Args:
-            postid = post identified by postid.
+            content = Dictionary containing post dat.
             Publish = Publish status.
+            blogid  = Blog ID
         
         """
-        return self.Execute('metaWeblog.deletePost', postid, self.username, self.password, publish)
+        return self.execute('metaWeblog.newPost', blogid, self.username, self.password, content, publish)
 
-    def EditPost(self,postid,newpost,pubish=True):
+    def edit_post(self, postid, newpost, pubish=True):
         """
         Edits a post identified by postid with content passed in newpost
 
@@ -168,29 +163,101 @@ class MetaWeblog(object):
             newpost = dictionary with content details about the new post.
             Publish = Publish status.        
         """
-        return self.Execute('metaWeblog.editPost', postid, self.username, self.password, newpost, publish)
+        return self.execute('metaWeblog.editPost', postid, self.username, self.password, newpost, publish)
 
-    def Execute(self, methodname, *args):
-        
+    def delete_post(self, postid, publish=True):
         """
-        Callback function to call the XML-RPC method
-        
+        Deletes a post identified by postid
+
         Args:
-           methodname = XML-RPC methodname.
-           args = Arguments to the call. 
+            postid = post identified by postid.
+            Publish = Publish status.
+
         """
-        if not methodname in self.methods:
-            raise BlogError(BlogError.METHOD_NOT_SUPPORTED)
+        return self.execute('metaWeblog.deletePost', postid, self.username, self.password, publish)
+
+    def get_categories(self, blogid=1):
+        """
+        Returns a list of categories.
+
+        Args:
+            blogid = Blog ID
+        """
+        return self.execute('metaWeblog.getCategories', blogid, self.username, self.password)
+
+    def get_users_blogs(self):
+        """
+        Returns a list of blogs associated by the user.
+
+        """
+        return self.execute('metaWeblog.getUsersBlogs', self.username, self.password)
+
+    def new_media_object(self, new_object, blogid=1):
+        """
+        Args:
+            new_object = Structure containing information about new media object to be uploaded
+            blogid = Blog ID
             
-        try:
-            r = getattr(self.server, methodname)(args)
-        except xmlrpclib.Fault, fault:
-            raise BlogError(fault.faultString)
+        Returns:
+            URL to the uploaded file
+
+        """
+        return self.execute('metaWeblog.newMediaObject', blogid, self.username, self.password, new_object)
+        
+class WordPress(MetaWeblog):
+    """
+    Python interface to Wordpress API
+    Wordpress basically implements all MetaWebLog and extends it by providing it with its methods.
+    """
+
+    def __init__(self, serverapi, username, password):
+        MetaWeblog.__init__(self, serverapi, username, password)
+        
+    def delete_category(self, catid, blogid=1):
+        """
+        Args:
+            catid = Category ID
+            blogid = Blog ID
             
-        return r
-    
+        """
+        return self.execute('wp.deleteCategory', blogid, self.username, self.password, catid)
+
+    def edit_page(new, content, publish=True, blogid=1):
+        """
+        Args:
+            content - Dictionary of new content
+        """
+        return self.execute('wp.newPage', blogid, self.username, self.password, content, publish)
+        
+    def edit_page(self, pageid, content, publish=True, blogid=1):
+        """
+        Args:
+            pageid = Page to edit
+            content - Dictionary of new content
+        """
+        return self.execute('wp.editPage', blogid, pageid, self.username, self.password, content, publish)
+
+    def delete_page(self, pageid, blogid=1):
+        """
+        Args:
+            pageid = Page to delete
+        """
+        return self.execute('wp.deletePage', blogid, self.username, self.password, pageid)
+
+    def get_pages(self, blogid=1):
+        """
+        Returns a list of the most recent pages in the system.
+        """
+        return self.execute('wp.getPages', blogid, self.username, self.password)
+
+    def get_page(self, pageid, blogid=1):
+        """
+        Returns the content of page identified by pageid
+        """
+        return self.execute('wp.getPage', blogid, pageid, self.username, self.password)
+
+        
 def main():
-    pass
 
 if __name__ == '__main__':
     main()

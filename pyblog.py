@@ -53,15 +53,16 @@ class Blog(object):
     
     Rightnow, it returns Python based dictionary as it is returned by the server but later on we maybe encapsulate the data using simplified custon object.
     """
-    def __init__(self, serverapi, username, password):
+    def __init__(self, serverapi, username, password, appkey):
         """
         Args:
             serverapi = URL to the XML-RPC API.
             username  = Username for the Blog account.
             password  = Password for the Blog account.
         """
-        self.username           = username
-        self.password           = password
+        self.username   = username
+        self.password   = password
+        self.appkey = appkey    
         self.methods            = []
 
         # Check if URL exists
@@ -105,8 +106,14 @@ class Blog(object):
 
         return r
         
+    def is_method_available(self, methodname):
+        """Returns if a method is supported by the XML-RPC server"""
+        if methodname in self.methods:
+            return True
+        else:
+            return False
 
-class Blogger(object):
+class Blogger(Blog):
     """
     A Python interface to the blogger API.
     """
@@ -120,8 +127,8 @@ class MetaWeblog(Blog):
     This class extends Blog to implement metaWeblog API
     """
 
-    def __init__(self, serverapi, username, password):
-        Blog.__init__(self, serverapi, username, password)
+    def __init__(self, serverapi, username, password, appkey='0x001'):
+        Blog.__init__(self, serverapi, username, password, appkey)
         
     def get_recent_posts(self, numposts=10, blogid=1):
         """
@@ -154,7 +161,7 @@ class MetaWeblog(Blog):
         """
         return self.execute('metaWeblog.newPost', blogid, self.username, self.password, content, publish)
 
-    def edit_post(self, postid, newpost, pubish=True):
+    def edit_post(self, postid, newpost, publish=True):
         """
         Edits a post identified by postid with content passed in newpost
 
@@ -174,7 +181,7 @@ class MetaWeblog(Blog):
             Publish = Publish status.
 
         """
-        return self.execute('metaWeblog.deletePost', postid, self.username, self.password, publish)
+        return self.execute('metaWeblog.deletePost', self.appkey, postid, self.username, self.password, publish)
 
     def get_categories(self, blogid=1):
         """
@@ -190,7 +197,7 @@ class MetaWeblog(Blog):
         Returns a list of blogs associated by the user.
 
         """
-        return self.execute('metaWeblog.getUsersBlogs', self.username, self.password)
+        return self.execute('metaWeblog.getUsersBlogs', self.appkey, self.username, self.password)
 
     def new_media_object(self, new_object, blogid=1):
         """
@@ -204,6 +211,15 @@ class MetaWeblog(Blog):
         """
         return self.execute('metaWeblog.newMediaObject', blogid, self.username, self.password, new_object)
         
+    def get_template(self, templateType, blogid=1):
+        """Returns the template type identifed by templateType"""
+        return self.execute("metaWeblog.getTemplate", self.appkey, blogid, self.username, self.password, templateType)
+        
+    def set_template(self, template, templateType, blogid=1):
+        
+        """Sets the new template value for templateType"""
+        return self.execute("metaWeblog.setTemplate", self.appkey, blogid, self.username, self.password, template, templateType)        
+        
 class WordPress(MetaWeblog):
     """
     Python interface to Wordpress API
@@ -213,16 +229,20 @@ class WordPress(MetaWeblog):
     def __init__(self, serverapi, username, password):
         MetaWeblog.__init__(self, serverapi, username, password)
         
-    def delete_category(self, catid, blogid=1):
+    def get_post_status_list(self, blogid=1):
         """
-        Args:
-            catid = Category ID
-            blogid = Blog ID
-            
+        ( Draft, Pending Review, Private, Published ).Returns a dict of all the valid post statuses ( draft, pending, private, publish ) and their descriptions 
+        ( Draft, Pending Review, Private, Published ).
         """
-        return self.execute('wp.deleteCategory', blogid, self.username, self.password, catid)
+        return self.execute('wp.getPostStatusList', blogid, self.username, self.password)
 
-    def edit_page(new, content, publish=True, blogid=1):
+    def get_authors(self, blogid=1):
+        """
+            Get a list of users for the blog.
+        """
+        return self.execute('wp.getAuthors', blogid, self.username, self.password)
+        
+    def new_page(self, content, publish=True, blogid=1):
         """
         Args:
             content - Dictionary of new content
@@ -255,9 +275,90 @@ class WordPress(MetaWeblog):
         Returns the content of page identified by pageid
         """
         return self.execute('wp.getPage', blogid, pageid, self.username, self.password)
+        
+    def get_page_list(self, blogid=1):
+        """
+        Get an list of all the pages on a blog. Just the minimum details, lighter than wp.getPages.
+        """
+        return self.execute('wp.getPageList', blogid, self.username, self.password)
+        
+    def get_page_status_list(self, blogid=1):
+        """Returns a dict of all the valid page statuses ( draft, private, publish ) and their descriptions ( Draft, Private, Published)"""
+        
+        return self.execute('wp.getPageStatusList', blogid, self.username, self.password)        
+        
+    def new_category(self, content, blogid=1):
+        """
+        Args:
+            content = Dictionary content having data for new category.
+            
+        Returns id of new value
+        """
+        return self.execute('wp.newCategory', blogid, self.username, self.password, content)
 
+    def delete_category(self, catid, blogid=1):
+        """
+        Args:
+            catid = Category ID
+            blogid = Blog ID
+
+        """
+        return self.execute('wp.deleteCategory', blogid, self.username, self.password, catid)
+        
+    def get_comment_count(self, postid=0, blogid=1):
+        """
+        Provides a struct of all the comment counts ( approved, awaiting_moderation, spam, total_comments ) for a given postid.
+        The postid parameter is optional (or can be set to zero), if it is not provided then the same struct is returned, but for the 
+        entire blog instead of just one post
+        """
+         
+        return self.execute('wp.getCommentCount', blogid, self.username, self.password, postid)
+        
+    def get_users_blogs(self):
+        """
+        Returns a list of blogs associated by the user.
+        """
+        return self.execute('wp.getUsersBlogs', self.username, self.password)
+
+    def get_options(self, options=[], blogid=1):
+        """
+        Return option details.
+        
+        The parameter options, list, is optional. If it is not included then it will return all of the option info that we have. 
+        With a populated list, each field is an option name and only those options asked for will be returned.
+        """
+        return self.execute('wp.getOptions', blogid, self.username, self.password, options)
+
+    def set_options(self, option, blogid=1):
+        """
+        That option parameter is option name/value pairs. The return value is same as if you called wp.getOptions asking for the those option names, 
+        only they'll include the new value. If you try to set a new value for an option that is read-only, it will silently fail and you'll get the original
+        value back instead of the new value you attempted to set.
+        """
+        return self.execute('wp.setOptions', blogid, self.username, self.password, option)
+        
+    def suggest_categories(self, category, max_results=10, blogid=1):
+        """Returns a list of dictionaries of categories that start with a given string."""
+        return self.execute('wp.suggestCategories', blogid, self.username, self.password, category, max_results)
+        
+    def upload_file(self, data, blogid=1):
+        """
+        Upload a file.
+        
+        Data contains values as documented at http://codex.wordpress.org/XML-RPC_wp#wp.getCategories
+        """
+        return self.execute('wp.uploadFile', blogid, self.username, self.password, data)
+
+class MovableType(MetaWeblog):
+    """
+    A Python interface to the MovableType API.
+    """
+
+    def __init__(self, serverapi, username, password):
+        raise BlogError("This class has not yet been implemented")
         
 def main():
-
+    pass
+    
 if __name__ == '__main__':
     main()

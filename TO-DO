@@ -1,0 +1,4 @@
+-- Implement MovableType and Blogger (using GData API)
+-- Provide with unit-test cases
+-- Extend XML-RPC methods with user-friendly parameters. E.g. wp.upload_file(content) should have corresponding method like: wp.upload_file(filename, type) and it will create the correct wp.upload_file(...) structure.
+-- Documentation

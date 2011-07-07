@@ -1,0 +1,11 @@
+/build
+/dist
+/*.egg-info
+*.pyc
+*.pyo
+*.log
+*.egg
+*.pid
+pip-log.txt
+.DS_Store
+

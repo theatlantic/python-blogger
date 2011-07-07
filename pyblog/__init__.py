@@ -1,15 +1,5 @@
 #!/usr/bin/python
 
-
-""""
-  Copyright 2008 Ritesh Nadhani. All Rights Reserved.
-
-  For license information please check the LICENSE page of the package.
-
-"""
-
-''' A library that provides python interface to '''
-
 import xmlrpclib
 import urllib
 

@@ -667,7 +667,7 @@ class MovableType(MetaWeblog):
 			blog_id = self.default_blog_id
 		
 		content = self._parse_custom_fields(content)
-		if 'publish' not in content and publish===False:
+		if 'publish' not in content and publish==False:
 			content['publish'] = False
 		
 		return self.execute('metaWeblog.newPost', blog_id, self.username, self.password, content, publish)

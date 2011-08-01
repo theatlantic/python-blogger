@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import os
 import xmlrpclib
 import urllib
 
@@ -181,7 +182,7 @@ class MetaWeblog(Blog):
 		"""
 		return self.execute('metaWeblog.getUsersBlogs', self.appkey, self.username, self.password)
 
-	def new_media_object(self, new_object, blog_id=None):
+	def new_media_object(self, new_object, name=None, blog_id=None):
 		"""
 		Args:
 			new_object (dict): Dict with the following keys
@@ -197,6 +198,29 @@ class MetaWeblog(Blog):
 			if self.default_blog_id is None:
 				raise BlogError("No blog_id passed")
 			blog_id = self.default_blog_id
+		
+		if isinstance(new_object, str) or isinstance(new_object, unicode):
+			try:
+				if os.path.exists(new_object):
+					media_bits = xmlrpclib.Binary(open(new_object).read())
+					if name is not None:
+						media_name = name
+					else:
+						media_name = os.path.basename(new_object)
+					new_object = {'bits': media_bits, 'name': media_name}
+			except ValueError:
+				pass
+		# See if the new_object implements file methods
+		elif type(getattr(new_object, 'read', None)).__name__ == 'function':
+			media_bits = xmlrpclib.Binary(new_object.read())
+			if name is not None:
+				media_name = name
+			else:
+				media_name = os.path.basename(new_object.name)
+			new_object = {'bits': media_bits, 'name': media_name}
+		elif isinstance(new_object, dict):
+			if name is not None:
+				new_object['name'] = name
 		
 		return self.execute('metaWeblog.newMediaObject', blog_id, self.username, self.password, new_object)
 		

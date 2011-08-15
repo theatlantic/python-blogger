@@ -503,8 +503,10 @@ class MovableType(MetaWeblog):
 		# This is the format that CustomFields::XMLRPCServer uses to encode custom fields
 		if len(custom_fields) > 0:
 			if 'mt_text_more' not in content:
-				content['mt_text_more'] = ''
-			content['mt_text_more'] += "\n" + "\n".join(custom_fields)
+				content['mt_text_more'] = u''
+			elif not isinstance(content['mt_text_more'], (str, unicode)):
+				content['mt_text_more'] = u''
+			content['mt_text_more'] += u"\n" + u"\n".join(custom_fields)
 		
 		return content
 	
